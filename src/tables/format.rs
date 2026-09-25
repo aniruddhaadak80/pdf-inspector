@@ -150,7 +150,7 @@ fn format_toc_as_list(cells: &[Vec<String>], footnotes: &[String]) -> String {
         }
 
         if !title.is_empty() {
-            output.push_str(&escape_cell_html(&title));
+            output.push_str(&escape_cell_html(title));
         }
         if let Some(page) = trailing {
             if !title.is_empty() {
