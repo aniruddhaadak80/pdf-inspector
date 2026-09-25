@@ -10077,7 +10077,7 @@ fn literal_html_is_escaped_without_escaping_engine_markup() {
     let pdf = std::fs::read("tests/fixtures/literal_html_markup.pdf").unwrap();
     let markdown = process_pdf_mem(&pdf).unwrap().markdown.unwrap();
     assert!(
-        markdown.contains("&lt;a test&gt; <u>underline</u> &lt;u&gt;underline&lt;/u&gt;"),
+        markdown.contains("&lt;a test&gt; &amp; value <u>underline</u> &lt;u&gt;underline&lt;/u&gt;"),
         "{markdown:?}"
     );
 }
