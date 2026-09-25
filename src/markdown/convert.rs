@@ -746,6 +746,25 @@ fn flush_page_tables_and_images(
     }
 }
 
+fn flush_code_block(output: &mut String, pending_code: &mut String) {
+    let trimmed = pending_code.trim();
+    if trimmed.chars().count() < 3 {
+        if !trimmed.is_empty() {
+            output.push_str(trimmed);
+            output.push_str("
+
+");
+        }
+    } else {
+        output.push_str("```
+");
+        output.push_str(pending_code);
+        output.push_str("```
+");
+    }
+    pending_code.clear();
+}
+
 /// Convert text lines to markdown, inserting tables and images at appropriate Y positions
 pub(super) fn to_markdown_from_lines_with_tables_and_images(
     lines: Vec<TextLine>,
@@ -841,25 +860,6 @@ pub(super) fn to_markdown_from_lines_with_tables_and_images(
     let mut in_list = false;
     let mut in_paragraph = false;
     let mut last_list_x: Option<f32> = None;
-    // Code lines accumulate here and the fence is emitted only when the
-    // block flushes with content — an empty ``` ``` pair can never appear.
-    fn flush_code_block(output: &mut String, pending_code: &mut String) {
-        let trimmed = pending_code.trim();
-        // A fragment too short to be code — a lone ® or stray glyph set in
-        // a mono face — reads better as plain text than as a fenced block.
-        if trimmed.chars().count() < 3 {
-            if !trimmed.is_empty() {
-                output.push_str(trimmed);
-                output.push_str("\n\n");
-            }
-        } else {
-            output.push_str("```\n");
-            output.push_str(pending_code);
-            output.push_str("```\n");
-        }
-        pending_code.clear();
-    }
-
     let mut in_code_block = false;
     let mut pending_code = String::new();
     let mut prev_had_dot_leaders = false;
@@ -1475,6 +1475,8 @@ pub fn to_markdown_from_lines(lines: Vec<TextLine>, options: MarkdownOptions) ->
     let mut current_page = 0u32;
     let mut prev_y = f32::MAX;
     let mut in_list = false;
+    let mut in_code_block = false;
+    let mut pending_code = String::new();
     let mut in_paragraph = false;
     let mut last_list_x: Option<f32> = None;
     let mut prev_had_dot_leaders = false;
@@ -1485,6 +1487,10 @@ pub fn to_markdown_from_lines(lines: Vec<TextLine>, options: MarkdownOptions) ->
         // Page break
         if line.page != current_page {
             if current_page > 0 {
+                if in_code_block {
+                    flush_code_block(&mut output, &mut pending_code);
+                    in_code_block = false;
+                }
                 if in_paragraph {
                     output.push_str("\n\n");
                     in_paragraph = false;
@@ -1556,6 +1562,13 @@ pub fn to_markdown_from_lines(lines: Vec<TextLine>, options: MarkdownOptions) ->
             // The next line measures its gap from the text line, not the tail.
             prev_y = prior_y;
             continue;
+        }
+        let is_code_line = options.detect_code
+            && (in_code_block || !in_paragraph)
+            && super::classify::line_is_monospace(line);
+        if in_code_block && !is_code_line {
+            flush_code_block(&mut output, &mut pending_code);
+            in_code_block = false;
         }
 
         // Detect figure/table captions and source citations
@@ -1684,9 +1697,10 @@ pub fn to_markdown_from_lines(lines: Vec<TextLine>, options: MarkdownOptions) ->
         // Detect code blocks by font. Only at a paragraph boundary — a
         // mono-set line continuing an open prose paragraph is an inline
         // code literal's style smeared across a wrapped line, not code.
-        if options.detect_code && !in_paragraph && super::classify::line_is_monospace(line) {
-            // Use plain text for code blocks
-            output.push_str(&format!("```\n{}\n```\n", plain_text.trim_end()));
+        if is_code_line {
+            in_code_block = true;
+            pending_code.push_str(plain_text.trim_end());
+            pending_code.push('\n');
             continue;
         }
 
@@ -1707,6 +1721,10 @@ pub fn to_markdown_from_lines(lines: Vec<TextLine>, options: MarkdownOptions) ->
         };
         in_paragraph = true;
         prev_had_dot_leaders = cur_dot_leaders;
+    }
+
+    if in_code_block {
+        flush_code_block(&mut output, &mut pending_code);
     }
 
     // Close final paragraph
@@ -1784,6 +1802,32 @@ mod tests {
         let mut item = make_item(text, page, None);
         item.y = y;
         make_line(vec![item])
+    }
+
+    #[test]
+    fn plain_converter_buffers_monospace_lines_and_indentation() {
+        let texts = ["def outer(items):", "    total = 0", "    return total"];
+        let lines = texts
+            .iter()
+            .enumerate()
+            .map(|(index, &text)| {
+                let mut item = make_item(text, 1, None);
+                item.x = 50.0;
+                item.y = 750.0 - index as f32 * 14.0;
+                item.width = text.len() as f32 * 6.6;
+                item.height = 11.0;
+                item.font = "Courier".to_string();
+                item.font_size = 11.0;
+                make_line(vec![item])
+            })
+            .collect();
+        let markdown = to_markdown_from_lines(lines, MarkdownOptions::default());
+        let expected = "```
+def outer(items):
+    total = 0
+    return total
+```";
+        assert!(markdown.contains(expected), "{markdown:?}");
     }
 
     #[test]
