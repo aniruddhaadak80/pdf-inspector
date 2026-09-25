@@ -751,16 +751,12 @@ fn flush_code_block(output: &mut String, pending_code: &mut String) {
     if trimmed.chars().count() < 3 {
         if !trimmed.is_empty() {
             output.push_str(trimmed);
-            output.push_str("
-
-");
+            output.push_str("\n\n");
         }
     } else {
-        output.push_str("```
-");
+        output.push_str("```\n");
         output.push_str(pending_code);
-        output.push_str("```
-");
+        output.push_str("```\n");
     }
     pending_code.clear();
 }
