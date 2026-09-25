@@ -2,16 +2,12 @@
 
 use super::{Table, TableKind};
 
-
 fn escape_cell_html(text: &str) -> String {
     const SCRIPT_TAGS: [&str; 4] = ["<sup>", "</sup>", "<sub>", "</sub>"];
     let mut escaped = String::with_capacity(text.len());
     let mut rest = text;
     while !rest.is_empty() {
-        if let Some(tag) = SCRIPT_TAGS
-            .iter()
-            .find(|tag| rest.starts_with(**tag))
-        {
+        if let Some(tag) = SCRIPT_TAGS.iter().find(|tag| rest.starts_with(*tag)) {
             escaped.push_str(tag);
             rest = &rest[tag.len()..];
             continue;
