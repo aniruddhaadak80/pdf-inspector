@@ -1071,10 +1071,11 @@ pub(super) fn to_markdown_from_lines_with_tables_and_images(
             in_code_block = false;
         }
 
-        if struct_role
-            .as_ref()
-            .is_some_and(|r| matches!(r, StructRole::Caption))
-            || is_caption_line(plain_trimmed)
+        if !is_code_line
+            && (struct_role
+                .as_ref()
+                .is_some_and(|r| matches!(r, StructRole::Caption))
+                || is_caption_line(plain_trimmed))
         {
             if in_paragraph {
                 output.push_str("\n\n");
@@ -1224,6 +1225,7 @@ pub(super) fn to_markdown_from_lines_with_tables_and_images(
             .is_some_and(|r| matches!(r, StructRole::LI))
             && !is_list_item(plain_trimmed)
             && !in_list
+            && !is_code_line
         {
             if in_paragraph {
                 output.push_str("\n\n");
@@ -1238,7 +1240,7 @@ pub(super) fn to_markdown_from_lines_with_tables_and_images(
         }
 
         // Detect list items
-        if options.detect_lists && is_list_item(plain_trimmed) {
+        if options.detect_lists && !is_code_line && is_list_item(plain_trimmed) {
             if in_paragraph {
                 output.push_str("\n\n");
                 in_paragraph = false;
@@ -1250,7 +1252,7 @@ pub(super) fn to_markdown_from_lines_with_tables_and_images(
             in_list = true;
             last_list_x = line.items.first().map(|i| i.x);
             continue;
-        } else if in_list {
+        } else if in_list && !is_code_line {
             // Check if this line is a continuation of the previous list item
             // Continuations have similar X position and reasonable Y gap
             let line_x = line.items.first().map(|i| i.x);
@@ -1285,6 +1287,7 @@ pub(super) fn to_markdown_from_lines_with_tables_and_images(
         if struct_role
             .as_ref()
             .is_some_and(|r| matches!(r, StructRole::BlockQuote))
+            && !is_code_line
         {
             if in_paragraph {
                 output.push_str("\n\n");
@@ -1569,7 +1572,7 @@ pub fn to_markdown_from_lines(lines: Vec<TextLine>, options: MarkdownOptions) ->
 
         // Detect figure/table captions and source citations
         // These should be on their own line followed by a paragraph break
-        if is_caption_line(plain_trimmed) {
+        if !is_code_line && is_caption_line(plain_trimmed) {
             if in_paragraph {
                 output.push_str("\n\n");
                 in_paragraph = false;
@@ -1648,7 +1651,7 @@ pub fn to_markdown_from_lines(lines: Vec<TextLine>, options: MarkdownOptions) ->
         }
 
         // Detect list items
-        if options.detect_lists && is_list_item(plain_trimmed) {
+        if options.detect_lists && !is_code_line && is_list_item(plain_trimmed) {
             if in_paragraph {
                 output.push_str("\n\n");
                 in_paragraph = false;
@@ -1660,7 +1663,7 @@ pub fn to_markdown_from_lines(lines: Vec<TextLine>, options: MarkdownOptions) ->
             in_list = true;
             last_list_x = line.items.first().map(|i| i.x);
             continue;
-        } else if in_list {
+        } else if in_list && !is_code_line {
             // Check if this line is a continuation of the previous list item
             let line_x = line.items.first().map(|i| i.x);
             let is_continuation = if let (Some(list_x), Some(curr_x)) = (last_list_x, line_x) {
@@ -1798,6 +1801,32 @@ mod tests {
         let mut item = make_item(text, page, None);
         item.y = y;
         make_line(vec![item])
+    }
+
+    #[test]
+    fn plain_converter_prioritizes_code_over_caption_and_list_formatting() {
+        let texts = ["Fig. 1", "- item", "    nested = True"];
+        let lines = texts
+            .iter()
+            .enumerate()
+            .map(|(index, &text)| {
+                let mut item = make_item(text, 1, None);
+                item.x = 50.0;
+                item.y = 750.0 - index as f32 * 14.0;
+                item.width = text.len() as f32 * 6.6;
+                item.height = 11.0;
+                item.font = "Courier".to_string();
+                item.font_size = 11.0;
+                make_line(vec![item])
+            })
+            .collect();
+        let markdown = to_markdown_from_lines(lines, MarkdownOptions::default());
+        let expected = "```
+Fig. 1
+- item
+    nested = True
+```";
+        assert!(markdown.contains(expected), "{markdown:?}");
     }
 
     #[test]
