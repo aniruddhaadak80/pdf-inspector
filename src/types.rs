@@ -719,7 +719,7 @@ pub(crate) fn push_item_text(result: &mut String, item: &TextItem, text: &str) {
     result.push('>');
 }
 
-pub(crate) fn push_item_text_escaped(result: &mut String, item: &TextItem, text: &str) {
+fn push_item_text_escaped(result: &mut String, item: &TextItem, text: &str) {
     let mut escaped = String::with_capacity(text.len());
     for ch in text.chars() {
         match ch {
