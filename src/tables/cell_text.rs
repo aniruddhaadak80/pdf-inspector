@@ -14,7 +14,7 @@ use crate::types::TextItem;
 /// that join fragments themselves never flatten a marker into plain digits.
 pub(crate) fn cell_fragment(item: &TextItem, text: &str) -> String {
     let mut fragment = String::new();
-    crate::types::push_item_text(&mut fragment, item, text);
+    crate::types::push_item_text_escaped(&mut fragment, item, text);
     fragment
 }
 
@@ -72,9 +72,9 @@ pub(crate) fn join_cell_items(items: &[&TextItem]) -> String {
             if crate::types::stacked_fraction_slash(prev_item, item) {
                 result.push('/');
             }
-            crate::types::push_item_text(&mut result, item, text);
+            crate::types::push_item_text_escaped(&mut result, item, text);
         } else {
-            crate::types::push_item_text(&mut result, item, text);
+            crate::types::push_item_text_escaped(&mut result, item, text);
         }
         last = Some(item);
     }
@@ -228,7 +228,7 @@ pub(crate) fn push_cell_item<'a>(
             cell.push('/');
         }
     }
-    crate::types::push_item_text(cell, item, text);
+    crate::types::push_item_text_escaped(cell, item, text);
     *last = Some(item);
 }
 
@@ -271,6 +271,15 @@ mod tests {
     fn test_join_cell_items_single_item() {
         let item = make_item("Hello", 100.0, 500.0, 10.0);
         assert_eq!(join_cell_items(&[&item]), "Hello");
+    }
+
+    #[test]
+    fn source_html_is_escaped_in_table_cells() {
+        let item = make_item("<u>x</u> & y", 100.0, 500.0, 10.0);
+        assert_eq!(
+            join_cell_items(&[&item]),
+            "&lt;u&gt;x&lt;/u&gt; &amp; y"
+        );
     }
 
     #[test]

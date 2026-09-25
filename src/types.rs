@@ -719,12 +719,17 @@ pub(crate) fn push_item_text(result: &mut String, item: &TextItem, text: &str) {
     result.push('>');
 }
 
-fn push_item_text_escaped(result: &mut String, item: &TextItem, text: &str) {
-    let text = text
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;");
-    push_item_text(result, item, &text);
+pub(crate) fn push_item_text_escaped(result: &mut String, item: &TextItem, text: &str) {
+    let mut escaped = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            _ => escaped.push(ch),
+        }
+    }
+    push_item_text(result, item, &escaped);
 }
 
 impl TextLine {
