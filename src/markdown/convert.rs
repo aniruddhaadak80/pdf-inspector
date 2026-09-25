@@ -1307,7 +1307,7 @@ pub(super) fn to_markdown_from_lines_with_tables_and_images(
                 paragraph_in_wrapped_bold_run = false;
             }
             in_code_block = true;
-            pending_code.push_str(plain_trimmed);
+            pending_code.push_str(plain_text.trim_end());
             pending_code.push('\n');
             continue;
         }
@@ -1686,7 +1686,7 @@ pub fn to_markdown_from_lines(lines: Vec<TextLine>, options: MarkdownOptions) ->
         // code literal's style smeared across a wrapped line, not code.
         if options.detect_code && !in_paragraph && super::classify::line_is_monospace(line) {
             // Use plain text for code blocks
-            output.push_str(&format!("```\n{}\n```\n", plain_trimmed));
+            output.push_str(&format!("```\n{}\n```\n", plain_text.trim_end()));
             continue;
         }
 
